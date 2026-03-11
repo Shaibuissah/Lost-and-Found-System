@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { db } from "@/lib/localDb"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -61,6 +62,27 @@ function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searchParam
 export default function ItemsPage({ searchParams }: ItemsPageProps) {
   const categories = db.getCategories()
 
+  // derive current filter values from the server-supplied searchParams
+  const currentSearch = searchParams.search || ""
+  const currentCategory = searchParams.category || ""
+  const currentStatus = searchParams.status || ""
+  const currentSort = searchParams.sort || "newest"
+
+  const router = useRouter()
+  const updateFilters = (params: { search?: string; category?: string; status?: string; sort?: string }) => {
+    const newParams = {
+      search: params.search !== undefined ? params.search : currentSearch,
+      category: params.category !== undefined ? params.category : currentCategory,
+      status: params.status !== undefined ? params.status : currentStatus,
+      sort: params.sort !== undefined ? params.sort : currentSort,
+    }
+    const qs = new URLSearchParams()
+    Object.entries(newParams).forEach(([k, v]) => {
+      if (v) qs.set(k, v)
+    })
+    router.push(`/items?${qs.toString()}`)
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -75,7 +97,14 @@ export default function ItemsPage({ searchParams }: ItemsPageProps) {
           </div>
 
           <div className="mb-8">
-            <SearchFilters categories={categories || []} />
+            <SearchFilters
+              categories={categories || []}
+              currentSearch={currentSearch}
+              currentCategory={currentCategory}
+              currentStatus={currentStatus}
+              currentSort={currentSort}
+              onChange={updateFilters}
+            />
           </div>
 
           <Suspense fallback={

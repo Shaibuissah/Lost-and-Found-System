@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -28,41 +27,34 @@ interface Category {
 
 interface SearchFiltersProps {
   categories: Category[]
+  currentSearch: string
+  currentCategory: string
+  currentStatus: string
+  currentSort: string
+  onChange: (params: {
+    search?: string
+    category?: string
+    status?: string
+    sort?: string
+  }) => void
 }
 
-export function SearchFilters({ categories }: SearchFiltersProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+export function SearchFilters({
+  categories,
+  currentSearch,
+  currentCategory,
+  currentStatus,
+  currentSort,
+  onChange,
+}: SearchFiltersProps) {
   const [isPending, startTransition] = useTransition()
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
-  const currentSearch = searchParams.get("search") || ""
-  const currentCategory = searchParams.get("category") || ""
-  const currentStatus = searchParams.get("status") || ""
-  const currentSort = searchParams.get("sort") || "newest"
-
   const [searchValue, setSearchValue] = useState(currentSearch)
-
-  const createQueryString = useCallback(
-    (params: Record<string, string>) => {
-      const newSearchParams = new URLSearchParams(searchParams.toString())
-      
-      Object.entries(params).forEach(([key, value]) => {
-        if (value) {
-          newSearchParams.set(key, value)
-        } else {
-          newSearchParams.delete(key)
-        }
-      })
-      
-      return newSearchParams.toString()
-    },
-    [searchParams]
-  )
 
   const updateFilters = (params: Record<string, string>) => {
     startTransition(() => {
-      router.push(`/items?${createQueryString(params)}`)
+      onChange(params)
     })
   }
 
@@ -73,9 +65,7 @@ export function SearchFilters({ categories }: SearchFiltersProps) {
 
   const clearFilters = () => {
     setSearchValue("")
-    startTransition(() => {
-      router.push("/items")
-    })
+    updateFilters({ search: "", category: "", status: "" })
   }
 
   const hasActiveFilters = currentSearch || currentCategory || currentStatus
