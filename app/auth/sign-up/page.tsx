@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { Header } from "@/components/header"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldGroup, Field, FieldLabel } from "@/components/ui/field"
@@ -88,8 +89,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col bg-background px-4 py-8">
+      <Header />
+      <div className="flex-grow flex items-center justify-center">
+        <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center gap-2 mb-2">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground">
@@ -204,6 +207,7 @@ export default function SignUpPage() {
             </p>
           </CardFooter>
         </Card>
+        </div>
       </div>
     </div>
   )
