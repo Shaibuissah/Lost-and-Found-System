@@ -107,9 +107,6 @@ package.json        # npm scripts and dependencies
 
 ## Development Notes
 
-- `middleware.ts` uses `updateSession` from `lib/supabase/proxy.ts` to
-  synchronize auth cookies on each request. It gracefully does nothing if no
-  environment variables are defined.
 - The stubbed Supabase clients (in `lib/supabase/{client,server}.ts`) allow the
   app to run without connecting to a real Supabase project. They return
   no-op objects for auth and query methods.
