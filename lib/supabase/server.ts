@@ -9,10 +9,22 @@ import { cookies } from 'next/headers'
 export async function createClient() {
   const cookieStore = await cookies()
 
+  // production requires credentials so that real clients can be created.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  ) {
+    throw new Error(
+      'Supabase URL/key are not set. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+    )
+  }
+
   // support development without any Supabase configuration
   if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NODE_ENV !== 'production' &&
+    (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   ) {
     const noopResponse = Promise.resolve({ data: null, error: null })
     const handler: ProxyHandler<any> = {

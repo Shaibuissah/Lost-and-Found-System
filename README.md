@@ -50,17 +50,21 @@ integration with session middleware.
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=public-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=... # optional
+   SUPABASE_SERVICE_ROLE_KEY=... # optional if you use server-only APIs
+   # (optional) for email redirects during development:
+   NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000/auth/callback
    ```
 
-   If you don't supply these variables, the application will run locally with
-   stubbed Supabase clients; you can still view and navigate the UI but no data
-   will be persisted.
+   **Production deployments (e.g. Vercel)** *must* have at least the URL and
+   anon key defined. The build will throw an error otherwise to avoid
+   silently running with a stubbed client. On Vercel, set them under
+   **Project Settings → Environment Variables**; make sure to add the values
+   for both `Preview` and `Production` environments.
 
-4. Start the development server:
-   ```bash
-   # disable Turbopack if you encounter errors
-   DISABLE_TURBOPACK=1 npm run dev
+   If you don't supply these variables locally, the application will run with
+   stubbed Supabase clients; you can still view and navigate the UI but user
+   creation, login, and database queries will be no-ops and no data will be
+   persisted.
    ```
 
 5. Open http://localhost:3000 (or whichever port is shown) in your browser.

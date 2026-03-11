@@ -1,12 +1,25 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 export function createClient() {
-  // if the project isn’t configured with Supabase credentials, return a
-  // lightweight stub that won’t crash when pages call its methods. This lets
-  // the app render locally without any network activity or errors.
+  // production deployments *must* have valid SUPABASE env vars. If they are
+  // missing in production, fail fast so the deploy will error instead of
+  // appearing to work with a stubbed client.
   if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NODE_ENV === 'production' &&
+    (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  ) {
+    throw new Error(
+      'Supabase URL/key are not set. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+    )
+  }
+
+  // during development we provide a no-op stub so the UI renders even without
+  // a real backend. This avoids breaking the site when env vars are absent.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   ) {
     const noopResponse = Promise.resolve({ data: null, error: null })
     const handler: ProxyHandler<any> = {
