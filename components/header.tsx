@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { 
@@ -12,11 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { Search, Menu, X, User, LogOut, LayoutDashboard, Plus } from "lucide-react"
+import { Search, Menu, X, User, LogOut, LayoutDashboard, Plus, Sun, Moon } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 export function Header() {
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -68,7 +70,7 @@ export function Header() {
             <Link
               key={item.name}
               href={item.href}
-              className={`text-sm font-medium transition-colors hover:text-primary ${
+              className={`text-base font-medium transition-colors hover:text-primary ${
                 isActive(item.href) ? "text-foreground" : "text-muted-foreground"
               }`}
             >
@@ -79,6 +81,10 @@ export function Header() {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3">
+          {/* theme toggle */}
+          <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
           {loading ? (
             <div className="w-20 h-9 bg-muted animate-pulse rounded-md" />
           ) : user ? (
@@ -142,7 +148,7 @@ export function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`text-sm font-medium py-2 ${
+                className={`text-base font-medium py-2 ${
                   isActive(item.href) ? "text-foreground" : "text-muted-foreground"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
@@ -150,6 +156,12 @@ export function Header() {
                 {item.name}
               </Link>
             ))}
+            {/* mobile theme toggle */}
+            <div className="pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark') }>
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
+            </div>
             <div className="border-t pt-3 mt-2 flex flex-col gap-2">
               {user ? (
                 <>
