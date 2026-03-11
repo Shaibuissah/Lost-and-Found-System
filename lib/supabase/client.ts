@@ -14,14 +14,18 @@ export function createClient() {
     )
   }
 
-  // during development we provide a no-op stub so the UI renders even without
-  // a real backend. This avoids breaking the site when env vars are absent.
+  // during development we provide a fake auth stub so the UI behaves like
+  // a real backend even if you haven't configured SUPABASE env vars. This
+  // way the sign-in/sign-up flows will actually navigate instead of bouncing
+  // back to the login page.
   if (
     process.env.NODE_ENV !== 'production' &&
     (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
       !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   ) {
     const noopResponse = Promise.resolve({ data: null, error: null })
+    let fakeUser: any = null
+
     const handler: ProxyHandler<any> = {
       get(_target, prop) {
         if (prop === 'from') {
@@ -29,11 +33,21 @@ export function createClient() {
         }
         if (prop === 'auth') {
           return {
-            getUser: async () => ({ data: { user: null }, error: null }),
+            getUser: async () => ({ data: { user: fakeUser }, error: null }),
+            signInWithPassword: async ({ email }: any) => {
+              fakeUser = { id: 'dev-user', email, user_metadata: {} }
+              return { data: { user: fakeUser }, error: null }
+            },
+            signUp: async ({ email }: any) => {
+              fakeUser = { id: 'dev-user', email, user_metadata: {} }
+              return { data: { user: fakeUser }, error: null }
+            },
             signInWithOtp: async () => noopResponse,
-            signUp: async () => noopResponse,
             updateUser: async () => noopResponse,
-            signOut: async () => ({ error: null }),
+            signOut: async () => {
+              fakeUser = null
+              return { error: null }
+            },
             onAuthStateChange: () => ({
               data: { subscription: { unsubscribe: () => {} } },
             }),
