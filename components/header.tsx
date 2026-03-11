@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
-import { createClient } from "@/lib/supabase/client"
+import { auth } from "@/lib/localDb"
 import { Button } from "@/components/ui/button"
 import { 
   DropdownMenu, 
@@ -14,33 +14,33 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { Search, Menu, X, User, LogOut, LayoutDashboard, Plus, Sun, Moon } from "lucide-react"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
+import type { User as LocalUser } from "@/lib/localDb"
 
 export function Header() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [user, setUser] = useState<LocalUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const supabase = createClient()
+  // const supabase = createClient() // replaced with local auth
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await auth.getUser()
       setUser(user)
       setLoading(false)
     }
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await auth.signOut()
     window.location.href = "/"
   }
 

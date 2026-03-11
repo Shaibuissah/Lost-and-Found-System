@@ -1,10 +1,9 @@
 # Lost and Found System
 
 This repository contains a Next.js application for a university lost & found
-system. The project provides a web UI for users to report and browse found items,
-manage profiles, and handle authentication using Supabase. The codebase is built
-with TypeScript and Tailwind CSS, and includes a client/server Supabase
-integration with session middleware.
+system. Users can report and browse found items, manage profiles, and
+authenticate with a simple local-storage backend. The codebase is built with
+TypeScript and Tailwind CSS and is intended for offline/local development.
 
 ## Features
 
@@ -12,25 +11,30 @@ integration with session middleware.
 - Dashboard to view and manage reported items
 - Browse items with filters and categories
 - Responsive layout with mobile support
-- Supabase-backed data storage (`profiles`, `found_items`, `categories`)
-- API routes and middleware for session handling
+- Client-side storage using browser `localStorage` for data and sessions
 
 ## Tech Stack
 
 - [Next.js 16](https://nextjs.org) (with React 19)
 - [TypeScript](https://www.typescriptlang.org)
 - [Tailwind CSS](https://tailwindcss.com)
-- [Supabase](https://supabase.com) for authentication and database
+- Browser `localStorage` for data persistence (no external service)
 - [Radix UI](https://www.radix-ui.com) components via shadcn/ui
 - Additional UI libraries: `lucide-react`, `react-hook-form`, `date-fns`, etc.
 
 ## Getting Started
 
+This project no longer requires any environment variables. All data is stored in
+`localStorage`, so you can simply run the development server and start using the
+app. Existing database migration scripts remain for reference but are not used.
+
+
+
 ### Prerequisites
 
 - Node.js (18+ preferred)
 - Git
-- A Supabase project (optional if you want full functionality)
+- (previously) A Supabase project - now removed in favor of local storage
 
 ### Installation
 
@@ -85,14 +89,14 @@ SQL scripts are available in the `scripts/` directory to create tables:
 - `003_create_categories.sql`
 - `004_setup_storage.sql`
 
-Run these against your Supabase/Postgres instance to set up the schema.
+*(Schema scripts are no longer needed; historic SQL files remain for reference.)*
 
 ## Project Structure
 
 ```
 app/                # Next.js App Router pages and layouts
 components/         # Shared UI components
-lib/supabase/       # Supabase client helpers (client.ts, server.ts, proxy.ts)
+lib/localDb.ts       # In-browser database and authentication API using localStorage
 hooks/              # Custom React hooks
 public/             # Static assets
 scripts/            # Database setup SQL

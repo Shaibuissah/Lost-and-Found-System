@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { auth } from "@/lib/localDb"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  // supabase replaced by local auth
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -46,13 +46,11 @@ export default function SignUpPage() {
 
     setLoading(true)
 
-    // Sign up the user with metadata
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // create user in local storage
+    const { data: authData, error: authError } = await auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
-        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-          `${window.location.origin}/auth/callback`,
         data: {
           full_name: formData.fullName,
           student_id: formData.studentId,
@@ -65,24 +63,6 @@ export default function SignUpPage() {
       setError(authError.message)
       setLoading(false)
       return
-    }
-
-    // If user was created, also insert into profiles table
-    if (authData.user) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: authData.user.id,
-          full_name: formData.fullName,
-          student_id: formData.studentId,
-          email: formData.email,
-          phone: formData.phone || null,
-        })
-
-      if (profileError) {
-        console.error("Profile creation error:", profileError)
-        // Don't show error to user - the profile might already exist or will be created on confirmation
-      }
     }
 
     router.push("/auth/sign-up-success")

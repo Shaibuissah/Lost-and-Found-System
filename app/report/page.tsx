@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { auth, db } from "@/lib/localDb"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ImageUpload } from "@/components/image-upload"
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { AlertCircle, ArrowLeft, CheckCircle } from "lucide-react"
-import type { User } from "@supabase/supabase-js"
+import type { User } from "@/lib/localDb"
 
 interface Category {
   id: string
@@ -30,7 +30,7 @@ interface Category {
 
 export default function ReportItemPage() {
   const router = useRouter()
-  const supabase = createClient()
+  // const supabase = createClient() // using localDb instead
   
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,7 +50,7 @@ export default function ReportItemPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await auth.getUser()
       if (!user) {
         router.push("/auth/login?redirect=/report")
         return
@@ -60,18 +60,13 @@ export default function ReportItemPage() {
     }
 
     const fetchCategories = async () => {
-      const { data } = await supabase
-        .from("categories")
-        .select("id, name")
-        .order("name")
-      if (data) {
-        setCategories(data)
-      }
+      const data = db.getCategories()
+      setCategories(data)
     }
 
     checkAuth()
     fetchCategories()
-  }, [supabase, router])
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,37 +80,23 @@ export default function ReportItemPage() {
 
       // Upload image if provided
       if (imageFile) {
-        const fileExt = imageFile.name.split(".").pop()
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`
-        
-        const { error: uploadError } = await supabase.storage
-          .from("item-images")
-          .upload(fileName, imageFile)
-
-        if (uploadError) {
-          throw new Error("Failed to upload image: " + uploadError.message)
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("item-images")
-          .getPublicUrl(fileName)
-        
+        const { publicUrl } = await db.uploadImage("item-images", imageFile)
         imageUrl = publicUrl
       }
 
       // Insert the found item
-      const { error: insertError } = await supabase
-        .from("found_items")
-        .insert({
-          title: formData.title,
-          description: formData.description,
-          category_id: formData.categoryId || null,
-          location_found: formData.locationFound,
-          date_found: formData.dateFound,
-          image_url: imageUrl,
-          finder_id: user.id,
-          status: "available",
-        })
+      const { error: insertError } = db.insertItem({
+        id: Math.random().toString(36).substring(2),
+        title: formData.title,
+        description: formData.description,
+        category_id: formData.categoryId || null,
+        location_found: formData.locationFound,
+        date_found: formData.dateFound,
+        image_url: imageUrl,
+        finder_id: user.id,
+        status: "available",
+        created_at: new Date().toISOString(),
+      })
 
       if (insertError) {
         throw new Error("Failed to submit report: " + insertError.message)

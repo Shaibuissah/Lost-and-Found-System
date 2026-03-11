@@ -1,7 +1,10 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase/server"
+import { db } from "@/lib/localDb"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -11,26 +14,25 @@ import { ArrowLeft, MapPin, Calendar, User, Mail, Phone, Clock } from "lucide-re
 import { format, formatDistanceToNow } from "date-fns"
 
 interface ItemDetailPageProps {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
-export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
-  const { id } = await params
-  const supabase = await createClient()
+export default function ItemDetailPage({ params }: ItemDetailPageProps) {
+  const { id } = params
+  const [item, setItem] = useState<any>(null)
 
-  const { data: item, error } = await supabase
-    .from("found_items")
-    .select(`
-      *,
-      category:categories(id, name, icon),
-      finder:profiles(id, full_name, email, phone, student_id)
-    `)
-    .eq("id", id)
-    .single()
+  useEffect(() => {
+    const i = db.getItemById(id)
+    if (!i) {
+      notFound()
+    } else {
+      const category = db.getCategories().find(c => c.id === i.category_id) || null
+      const finder = db.getProfile(i.finder_id)
+      setItem({ ...i, category, finder } as any)
+    }
+  }, [id])
 
-  if (error || !item) {
-    notFound()
-  }
+  if (!item) return null
 
   const statusColors = {
     available: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",

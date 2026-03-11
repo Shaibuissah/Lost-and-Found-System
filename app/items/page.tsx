@@ -1,5 +1,7 @@
-import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { Suspense, useState, useEffect } from "react"
+import { db } from "@/lib/localDb"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { SearchFilters } from "@/components/search-filters"
@@ -8,63 +10,31 @@ import { Empty } from "@/components/ui/empty"
 import { PackageOpen } from "lucide-react"
 
 interface ItemsPageProps {
-  searchParams: Promise<{
+  searchParams: {
     search?: string
     category?: string
     status?: string
     sort?: string
-  }>
+  }
 }
 
-async function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searchParams"] }) {
-  const params = await searchParams
-  const supabase = await createClient()
+function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searchParams"] }) {
+  const params = searchParams
 
-  let query = supabase
-    .from("found_items")
-    .select(`
-      *,
-      category:categories(id, name, icon),
-      finder:profiles(full_name)
-    `)
-
-  // Apply search filter
-  if (params.search) {
-    query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`)
-  }
-
-  // Apply category filter
+  // compute filters
+  let categoryId: string | undefined
   if (params.category) {
-    const { data: categoryData } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("name", params.category)
-      .single()
-    
-    if (categoryData) {
-      query = query.eq("category_id", categoryData.id)
-    }
+    const cats = db.getCategories()
+    const cat = cats.find((c) => c.name === params.category)
+    if (cat) categoryId = cat.id
   }
 
-  // Apply status filter
-  if (params.status) {
-    query = query.eq("status", params.status)
-  }
-
-  // Apply sorting
-  const sortOrder = params.sort === "oldest" ? { ascending: true } : { ascending: false }
-  query = query.order("created_at", sortOrder)
-
-  const { data: items, error } = await query
-
-  if (error) {
-    console.error("Error fetching items:", error)
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Failed to load items. Please try again.</p>
-      </div>
-    )
-  }
+  const items = db.getItems({
+    search: params.search,
+    category_id: categoryId || undefined,
+    status: params.status as any,
+    sort: params.sort,
+  })
 
   if (!items || items.length === 0) {
     return (
@@ -88,12 +58,8 @@ async function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searc
   )
 }
 
-export default async function ItemsPage({ searchParams }: ItemsPageProps) {
-  const supabase = await createClient()
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name")
-    .order("name")
+export default function ItemsPage({ searchParams }: ItemsPageProps) {
+  const categories = db.getCategories()
 
   return (
     <div className="flex flex-col min-h-screen">

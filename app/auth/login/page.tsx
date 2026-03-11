@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { auth } from "@/lib/localDb"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
 import { Input } from "@/components/ui/input"
@@ -18,14 +18,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  // supabase replaced by local auth
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await auth.signInWithPassword({
       email,
       password,
     })
