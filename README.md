@@ -117,7 +117,7 @@ package.json        # npm scripts and dependencies
 
 - **"Port 3000 is in use"** – stop the other Next.js instance or kill the
   process. Use `npx kill-port 3000`.
-- **Turbopack panics** – set `DISABLE_TURBOPACK=1` before running `npm run dev`.
+- **Turbopack panics** – use webpack by running `npm run dev` (script now passes `--turbo=false`) or delete the `.next` folder if issues persist.
 - **Supabase runtime errors** – ensure environment variables are set or rely on
   the stub client during development.
 
