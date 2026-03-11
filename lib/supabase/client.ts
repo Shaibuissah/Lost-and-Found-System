@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createBrowserClient } from '@supabase/supabase-js'
 
 export function createClient() {
   // production deployments *must* have valid SUPABASE env vars. If they are
