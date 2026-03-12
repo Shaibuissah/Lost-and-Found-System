@@ -32,6 +32,8 @@ export type FoundItem = {
   date_found: string
   image_url: string | null
   finder_id: string
+  // optional ID of the user who has claimed the item
+  claimer_id?: string | null
   status: "available" | "claimed" | "returned"
   created_at: string
   updated_at?: string
@@ -204,6 +206,10 @@ export const db = {
   },
   insertItem(item: FoundItem) {
     const d = loadDb()
+    // ensure claimer_id property is defined (may be undefined)
+    if (!('claimer_id' in item)) {
+      ;(item as any).claimer_id = null
+    }
     d.found_items.push(item)
     saveDb(d)
     return { error: null }
@@ -215,6 +221,14 @@ export const db = {
     d.found_items[idx] = { ...d.found_items[idx], ...updates }
     saveDb(d)
     return { error: null }
+  },
+  // helper for claiming an item (sets status + claimer)
+  claimItem(id: string, claimerId: string) {
+    return this.updateItem(id, {
+      status: "claimed",
+      claimer_id: claimerId,
+      updated_at: new Date().toISOString(),
+    })
   },
   deleteItem(id: string) {
     const d = loadDb()

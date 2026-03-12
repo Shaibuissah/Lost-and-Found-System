@@ -1,6 +1,12 @@
+"use client"
+
 import Link from "next/link"
 import Image from "next/image"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { auth, db } from "@/lib/localDb"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Calendar } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
@@ -15,6 +21,8 @@ export interface FoundItem {
   image_url: string | null
   status: "available" | "claimed" | "returned"
   finder_id: string
+  // optional id of the user who has claimed the item
+  claimer_id?: string | null
   created_at: string
   category?: {
     id: string
@@ -24,6 +32,10 @@ export interface FoundItem {
   finder?: {
     full_name: string
   } | null
+  // optionally include profile info of the claimer when available
+  claimer?: {
+    full_name: string
+  } | null
 }
 
 interface ItemCardProps {
@@ -31,6 +43,39 @@ interface ItemCardProps {
 }
 
 export function ItemCard({ item }: ItemCardProps) {
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [claiming, setClaiming] = useState(false)
+  const [localItem, setLocalItem] = useState(item)
+
+  useEffect(() => {
+    setLocalItem(item)
+  }, [item])
+
+  useEffect(() => {
+    auth.getUser().then(({ data: { user } }) => setUser(user))
+  }, [])
+
+  const handleClaim = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) {
+      router.push(`/auth/login?redirect=/items/${item.id}`)
+      return
+    }
+    if (user.id === item.finder_id) return
+    setClaiming(true)
+    const { error } = await db.claimItem(item.id, user.id)
+    if (!error) {
+      const updated = db.getItemById(item.id)
+      if (updated) {
+        setLocalItem({ ...updated })
+      }
+      router.refresh()
+    }
+    setClaiming(false)
+  }
+
   const statusColors = {
     available: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     claimed: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -43,14 +88,16 @@ export function ItemCard({ item }: ItemCardProps) {
     returned: "Returned",
   }
 
+  const displayItem = localItem
+
   return (
-    <Link href={`/items/${item.id}`}>
+    <Link href={`/items/${displayItem.id}`}> 
       <Card className="group overflow-hidden hover:border-primary/50 hover:shadow-md transition-all h-full">
         <div className="aspect-[4/3] relative bg-muted overflow-hidden">
-          {item.image_url ? (
+          {displayItem.image_url ? (
             <Image
-              src={item.image_url}
-              alt={item.title}
+              src={displayItem.image_url}
+              alt={displayItem.title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -72,34 +119,45 @@ export function ItemCard({ item }: ItemCardProps) {
             </div>
           )}
           <Badge 
-            className={`absolute top-3 right-3 ${statusColors[item.status]}`}
+            className={`absolute top-3 right-3 ${statusColors[displayItem.status]}`}
             variant="secondary"
           >
-            {statusLabels[item.status]}
+            {statusLabels[displayItem.status]}
           </Badge>
         </div>
         <CardContent className="p-4">
           <div className="mb-2">
-            {item.category && (
-              <span className="text-xs font-medium text-primary">{item.category.name}</span>
+            {displayItem.category && (
+              <span className="text-xs font-medium text-primary">{displayItem.category.name}</span>
             )}
           </div>
           <h3 className="font-semibold text-foreground line-clamp-1 mb-2 group-hover:text-primary transition-colors">
-            {item.title}
+            {displayItem.title}
           </h3>
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {item.description}
+            {displayItem.description}
           </p>
         </CardContent>
         <CardFooter className="px-4 pb-4 pt-0 flex flex-col gap-2">
           <div className="flex items-center gap-1 text-xs text-muted-foreground w-full">
             <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{item.location_found}</span>
+            <span className="truncate">{displayItem.location_found}</span>
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground w-full">
             <Calendar className="w-3 h-3 flex-shrink-0" />
-            <span>Found {formatDistanceToNow(new Date(item.date_found), { addSuffix: true })}</span>
+            <span>Found {formatDistanceToNow(new Date(displayItem.date_found), { addSuffix: true })}</span>
           </div>
+          {user && displayItem.status === "available" && user.id !== item.finder_id && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleClaim}
+              disabled={claiming}
+              className="mt-2 w-full"
+            >
+              {claiming ? "Claiming..." : "Claim"}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </Link>

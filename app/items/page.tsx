@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { db } from "@/lib/localDb"
+import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { SearchFilters } from "@/components/search-filters"
@@ -20,29 +20,83 @@ interface ItemsPageProps {
 }
 
 function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searchParams"] }) {
-  const params = searchParams
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
-  // compute filters
-  let categoryId: string | undefined
-  if (params.category) {
-    const cats = db.getCategories()
-    const cat = cats.find((c) => c.name === params.category)
-    if (cat) categoryId = cat.id
+  useEffect(() => {
+    async function fetchItems() {
+      setLoading(true)
+      let query = supabase
+        .from('found_items')
+        .select(`
+          *,
+          category:categories(id, name),
+          finder:profiles!finder_id(id, full_name, email, phone, student_id)
+        `)
+
+      // Apply status filter - default to available
+      const statusFilter = searchParams.status === undefined ? "available" : searchParams.status
+      if (statusFilter) {
+        query = query.eq('status', statusFilter)
+      }
+
+      // Apply search filter
+      if (searchParams.search) {
+        query = query.or(`title.ilike.%${searchParams.search}%,description.ilike.%${searchParams.search}%`)
+      }
+
+      // Apply category filter
+      if (searchParams.category) {
+        const { data: categories } = await supabase.from('categories').select('id, name')
+        const cat = categories?.find((c) => c.name === searchParams.category)
+        if (cat) {
+          query = query.eq('category_id', cat.id)
+        }
+      }
+
+      // Apply sorting
+      if (searchParams.sort === 'oldest') {
+        query = query.order('created_at', { ascending: true })
+      } else {
+        query = query.order('created_at', { ascending: false })
+      }
+
+      const { data, error } = await query
+
+      if (!error && data) {
+        setItems(data)
+      }
+      setLoading(false)
+    }
+
+    fetchItems()
+  }, [searchParams.search, searchParams.category, searchParams.status, searchParams.sort])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="rounded-lg border bg-card animate-pulse">
+            <div className="aspect-[4/3] bg-muted" />
+            <div className="p-4 space-y-3">
+              <div className="h-4 bg-muted rounded w-1/3" />
+              <div className="h-5 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
-
-  const items = db.getItems({
-    search: params.search,
-    category_id: categoryId || undefined,
-    status: params.status as any,
-    sort: params.sort,
-  })
 
   if (!items || items.length === 0) {
     return (
       <Empty
         icon={PackageOpen}
         title="No items found"
-        description={params.search || params.category || params.status 
+        description={searchParams.search || searchParams.category || searchParams.status 
           ? "Try adjusting your search or filters to find what you're looking for."
           : "No items have been reported yet. Be the first to report a found item!"
         }
@@ -60,12 +114,25 @@ function ItemsGrid({ searchParams }: { searchParams: ItemsPageProps["searchParam
 }
 
 export default function ItemsPage({ searchParams }: ItemsPageProps) {
-  const categories = db.getCategories()
+  const [categories, setCategories] = useState<any[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetchCategories() {
+      const { data } = await supabase.from('categories').select('*')
+      if (data) setCategories(data)
+    }
+    fetchCategories()
+  }, [])
 
   // derive current filter values from the server-supplied searchParams
   const currentSearch = searchParams.search || ""
   const currentCategory = searchParams.category || ""
-  const currentStatus = searchParams.status || ""
+  // if user hasn't specified a status, default to only available items so
+  // new visitors automatically see things they can claim
+  // if the status query param is completely absent use "available" by default
+  // but if it's an empty string we allow showing all statuses (user chose "all").
+  const currentStatus = searchParams.status === undefined ? "available" : searchParams.status || ""
   const currentSort = searchParams.sort || "newest"
 
   const router = useRouter()

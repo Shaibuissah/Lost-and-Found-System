@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { auth, db } from "@/lib/localDb"
+import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -45,22 +45,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { User } from "@/lib/localDb"
 import type { FoundItem } from "@/components/item-card"
 import { formatDistanceToNow } from "date-fns"
 
 export default function DashboardPage() {
   const router = useRouter()
+  const supabase = createClient()
   
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<{ full_name: string; student_id: string } | null>(null)
-  const [items, setItems] = useState<FoundItem[]>([])
+  const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push("/auth/login?redirect=/dashboard")
         return
@@ -76,31 +76,54 @@ export default function DashboardPage() {
     setLoading(true)
     
     // Fetch profile
-    const profileData = db.getProfile(userId)
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('full_name, student_id')
+      .eq('id', userId)
+      .single()
+    
     if (profileData) {
       setProfile(profileData)
     }
 
     // Fetch user's reported items
-    const itemsData = db.getItems({ finder_id: userId })
-    setItems(itemsData as FoundItem[])
+    const { data: itemsData } = await supabase
+      .from('found_items')
+      .select(`
+        *,
+        category:categories(id, name)
+      `)
+      .eq('finder_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (itemsData) {
+      setItems(itemsData)
+    }
 
     setLoading(false)
   }
 
   const updateItemStatus = async (itemId: string, newStatus: string) => {
     setUpdating(itemId)
-    const { error } = db.updateItem(itemId, { status: newStatus as FoundItem["status"], updated_at: new Date().toISOString() })
+    const { error } = await supabase
+      .from('found_items')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', itemId)
+    
     if (!error) {
       setItems(items.map(item =>
-        item.id === itemId ? { ...item, status: newStatus as FoundItem["status"] } : item
+        item.id === itemId ? { ...item, status: newStatus } : item
       ))
     }
     setUpdating(null)
   }
 
   const deleteItem = async (itemId: string) => {
-    const { error } = db.deleteItem(itemId)
+    const { error } = await supabase
+      .from('found_items')
+      .delete()
+      .eq('id', itemId)
+    
     if (!error) {
       setItems(items.filter(item => item.id !== itemId))
     }

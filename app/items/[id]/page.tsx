@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { notFound } from "next/navigation"
+import { notFound, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { db } from "@/lib/localDb"
+import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, MapPin, Calendar, User, Mail, Phone, Clock } from "lucide-react"
+import { Spinner } from "@/components/ui/spinner"
 import { format, formatDistanceToNow } from "date-fns"
 
 interface ItemDetailPageProps {
@@ -19,20 +20,53 @@ interface ItemDetailPageProps {
 
 export default function ItemDetailPage({ params }: ItemDetailPageProps) {
   const { id } = params
+  const router = useRouter()
+  const supabase = createClient()
   const [item, setItem] = useState<any>(null)
+  const [user, setUser] = useState<any>(null)
+  const [claiming, setClaiming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const i = db.getItemById(id)
-    if (!i) {
-      notFound()
-    } else {
-      const category = db.getCategories().find(c => c.id === i.category_id) || null
-      const finder = db.getProfile(i.finder_id)
-      setItem({ ...i, category, finder } as any)
+    async function fetchItem() {
+      const { data, error } = await supabase
+        .from('found_items')
+        .select(`
+          *,
+          category:categories(id, name),
+          finder:profiles!finder_id(id, full_name, email, phone, student_id),
+          claimer:profiles!claimer_id(id, full_name, email, phone, student_id)
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error || !data) {
+        notFound()
+      } else {
+        setItem(data)
+      }
+      setLoading(false)
     }
+
+    async function fetchUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+
+    fetchItem()
+    fetchUser()
   }, [id])
 
-  if (!item) return null
+  if (loading || !item) return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-1 flex items-center justify-center">
+        <Spinner className="w-8 h-8" />
+      </main>
+      <Footer />
+    </div>
+  )
 
   const statusColors = {
     available: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -174,8 +208,96 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
                   </CardContent>
                 </Card>
               )}
+              {/* claim button for other authenticated users */}
+              {item.status === "available" && user && user.id !== item.finder_id && (
+                <div className="mt-6">
+                  {error && (
+                    <p className="text-sm text-destructive mb-2">{error}</p>
+                  )}
+                  <Button
+                    onClick={async () => {
+                      if (!user) {
+                        router.push(`/auth/login?redirect=/items/${id}`)
+                        return
+                      }
+                      setError(null)
+                      setClaiming(true)
+                      
+                      const { error: claimErr } = await supabase
+                        .from('found_items')
+                        .update({ 
+                          status: 'claimed', 
+                          claimer_id: user.id,
+                          updated_at: new Date().toISOString()
+                        })
+                        .eq('id', id)
 
-              {item.status !== "available" && (
+                      if (claimErr) {
+                        setError(claimErr.message)
+                      } else {
+                        // Refresh item data
+                        const { data } = await supabase
+                          .from('found_items')
+                          .select(`
+                            *,
+                            category:categories(id, name),
+                            finder:profiles!finder_id(id, full_name, email, phone, student_id),
+                            claimer:profiles!claimer_id(id, full_name, email, phone, student_id)
+                          `)
+                          .eq('id', id)
+                          .single()
+                        
+                        if (data) setItem(data)
+                        router.refresh()
+                      }
+                      setClaiming(false)
+                    }}
+                    disabled={claiming}
+                  >
+                    {claiming ? <Spinner className="w-4 h-4" /> : "Claim This Item"}
+                  </Button>
+                </div>
+              )}
+
+              {item.status === "claimed" && item.claimer && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Claimed By</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary">
+                        <User className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.claimer.full_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.claimer.student_id}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 pt-2">
+                      <a
+                        href={`mailto:${item.claimer.email}?subject=Regarding Found Item: ${item.title}`}
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <Mail className="w-4 h-4" />
+                        {item.claimer.email}
+                      </a>
+                      {item.claimer.phone && (
+                        <a
+                          href={`tel:${item.claimer.phone}`}
+                          className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                          <Phone className="w-4 h-4" />
+                          {item.claimer.phone}
+                        </a>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {item.status !== "available" && !item.claimer && (
                 <Card className="bg-muted/50">
                   <CardContent className="py-6 text-center">
                     <p className="text-muted-foreground">

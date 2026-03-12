@@ -16,8 +16,8 @@ CREATE POLICY "Public profiles are viewable by everyone"
   ON public.profiles FOR SELECT 
   USING (true);
 
--- Users can insert their own profile (also allows service role)
-CREATE POLICY "Users can insert their own profile" 
+-- Allow service role and authenticated users to insert profiles
+CREATE POLICY "Enable insert for authenticated users and service role" 
   ON public.profiles FOR INSERT 
   WITH CHECK (true);
 

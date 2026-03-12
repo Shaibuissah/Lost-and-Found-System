@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { auth } from "@/lib/localDb"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  // supabase replaced by local auth
+  const supabase = createClient()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -46,26 +46,32 @@ export default function SignUpPage() {
 
     setLoading(true)
 
-    // create user in local storage
-    const { data: authData, error: authError } = await auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: {
-          full_name: formData.fullName,
-          student_id: formData.studentId,
-          phone: formData.phone,
+    try {
+      // Create user account - the database trigger will automatically create the profile
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            student_id: formData.studentId,
+            phone: formData.phone,
+          },
         },
-      },
-    })
+      })
 
-    if (authError) {
-      setError(authError.message)
+      if (authError) {
+        setError(authError.message)
+        setLoading(false)
+        return
+      }
+
+      // Redirect to success page regardless of email confirmation
+      router.push("/auth/sign-up-success")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during sign up")
       setLoading(false)
-      return
     }
-
-    router.push("/auth/sign-up-success")
   }
 
   return (
